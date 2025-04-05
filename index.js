@@ -131,7 +131,8 @@ receiver.router.get('/slack/oauth_redirect', async (req, res) => {
     });
 
     if (result.data.ok) {
-      res.send("✅ Slackアプリのインストールが完了しました！");
+        console.log("🌟 新しいBotトークン:", result.data.access_token); // ←ここ追加！
+        res.send("✅ Slackアプリのインストールが完了しました！");
     } else {
       console.error("OAuth失敗:", result.data);
       res.status(500).send("OAuth処理に失敗しました");
