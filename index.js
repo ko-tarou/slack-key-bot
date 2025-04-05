@@ -1,7 +1,7 @@
 const { App, ExpressReceiver } = require('@slack/bolt');
 require('dotenv').config();
 
-// 🔐 鍵の状態（メモリ保持）
+// 鍵の状態（メモリ保持）
 let roomStatus = {
   "206": { status: "🟢 利用可能", user: "なし", time: "未使用" },
   "207": { status: "🟢 利用可能", user: "なし", time: "未使用" }
@@ -19,7 +19,7 @@ const app = new App({
   receiver
 });
 
-// 🔄 状態投稿関数（再投稿 or 上書き更新）
+// 鍵状態メッセージ投稿関数
 async function postKeyStatus(channelId, update = false) {
   const message = {
     channel: channelId,
@@ -65,17 +65,14 @@ async function postKeyStatus(channelId, update = false) {
   };
 
   if (update && statusMessageTs) {
-    await app.client.chat.update({
-      ...message,
-      ts: statusMessageTs
-    });
+    await app.client.chat.update({ ...message, ts: statusMessageTs });
   } else {
     const res = await app.client.chat.postMessage(message);
     statusMessageTs = res.ts;
   }
 }
 
-// 🧍‍♂️ ボタン処理（206）
+// ボタンアクション：206
 app.action("toggle_206", async ({ ack, body }) => {
   await ack();
   const user = `<@${body.user.id}>`;
@@ -93,7 +90,7 @@ app.action("toggle_206", async ({ ack, body }) => {
   await postKeyStatus(body.channel.id, true);
 });
 
-// 🧍‍♀️ ボタン処理（207）
+// ボタンアクション：207
 app.action("toggle_207", async ({ ack, body }) => {
   await ack();
   const user = `<@${body.user.id}>`;
@@ -111,7 +108,7 @@ app.action("toggle_207", async ({ ack, body }) => {
   await postKeyStatus(body.channel.id, true);
 });
 
-// 💬 Bot以外の発言でメッセージを一番下に再投稿
+// ユーザーが発言したとき：鍵状態を一番下に再投稿
 app.event("message", async ({ event }) => {
   if (event.subtype || event.bot_id) return;
 
@@ -123,13 +120,18 @@ app.event("message", async ({ event }) => {
       });
     }
 
-    await postKeyStatus(event.channel); // 再投稿（update = false）
+    await postKeyStatus(event.channel);
   } catch (err) {
     console.error("💥 メッセージ削除エラー:", err);
   }
 });
 
-// 🚀 起動時：「笑う」チャンネルに投稿
+// Slack OAuthリダイレクトURLに対応（これが今回の追加ポイント！）
+receiver.router.get('/slack/oauth_redirect', (req, res) => {
+  res.send("✅ 鍵Botのインストールが完了しました！");
+});
+
+// Bot起動時、"笑う"チャンネルに投稿
 (async () => {
   await app.start(process.env.PORT || 3000);
   console.log("⚡️ 鍵管理Bot 起動中！");
