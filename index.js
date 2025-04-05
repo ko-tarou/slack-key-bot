@@ -162,7 +162,7 @@ receiver.router.get('/slack/oauth_redirect', async (req, res) => {
   console.log("⚡️ 鍵管理Bot 起動中！");
 
   try {
-    const channelId = "C08LZMF1PRQ"; // ← DevelopHubの「笑う」のチャンネルIDを直接指定
+    const channelId = "C08LYUQSLM9"; // ← DevelopHubの「笑う」のチャンネルIDを直接指定
     await postKeyStatus(channelId);
   } catch (error) {
     console.error("チャンネル取得エラー:", error);
