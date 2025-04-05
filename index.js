@@ -60,36 +60,45 @@ function createKeyStatusBlocks() {
   ];
 }
 
-async function postKeyStatus(channelId) {
+async function postKeyStatus(channelId, update = false) {
   const auth = await app.client.auth.test();
   const botUserId = auth.user_id;
 
-  // 前の投稿を削除（あれば）
-  if (statusMessageTs) {
-    const messageInfo = await app.client.conversations.history({
+  if (update && statusMessageTs) {
+    // 🔁 状態変更時は上書き
+    await app.client.chat.update({
       channel: channelId,
-      latest: statusMessageTs,
-      limit: 1,
-      inclusive: true
+      ts: statusMessageTs,
+      text: "🔑 鍵の状態",
+      blocks: createKeyStatusBlocks()
+    });
+  } else {
+    // 🧹 旧メッセージ削除（Botの投稿だけ）
+    if (statusMessageTs) {
+      const messageInfo = await app.client.conversations.history({
+        channel: channelId,
+        latest: statusMessageTs,
+        limit: 1,
+        inclusive: true
+      });
+
+      if (messageInfo.messages?.[0]?.user === botUserId) {
+        await app.client.chat.delete({
+          channel: channelId,
+          ts: statusMessageTs
+        });
+      }
+    }
+
+    // ✨ 新しく投稿
+    const res = await app.client.chat.postMessage({
+      channel: channelId,
+      text: "🔑 鍵の状態",
+      blocks: createKeyStatusBlocks()
     });
 
-    if (messageInfo.messages?.[0]?.user === botUserId) {
-      await app.client.chat.delete({
-        channel: channelId,
-        ts: statusMessageTs
-      });
-    }
+    statusMessageTs = res.ts;
   }
-
-  // 新しいメッセージを投稿
-  const res = await app.client.chat.postMessage({
-    channel: channelId,
-    text: "🔑 鍵の状態",
-    blocks: createKeyStatusBlocks()
-  });
-
-  // 最新のメッセージTSを保存
-  statusMessageTs = res.ts;
 }
 
 app.action("toggle_206", async ({ ack, body }) => {
@@ -105,7 +114,7 @@ app.action("toggle_206", async ({ ack, body }) => {
     time: newStatus === "🔴 借りられ中" ? now : "未使用"
   };
 
-  await postKeyStatus(body.channel.id);
+  await postKeyStatus(body.channel.id, true); // ← 上書き
 });
 
 app.action("toggle_207", async ({ ack, body }) => {
@@ -121,14 +130,14 @@ app.action("toggle_207", async ({ ack, body }) => {
     time: newStatus === "🔴 借りられ中" ? now : "未使用"
   };
 
-  await postKeyStatus(body.channel.id);
+  await postKeyStatus(body.channel.id, true); // ← 上書き
 });
 
 app.event("message", async ({ event }) => {
   if (event.subtype || event.bot_id) return;
 
   try {
-    await postKeyStatus(event.channel);
+    await postKeyStatus(event.channel); // ← 新規投稿（update: false）
   } catch (err) {
     console.error("💥 メッセージ削除エラー:", err);
   }
