@@ -19,56 +19,45 @@ const app = new App({
   receiver
 });
 
-async function postKeyStatus(channelId, update = false) {
-  const message = {
-    channel: channelId,
-    text: "🔑 鍵の状態",
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*部屋206*：${roomStatus["206"].status}（${roomStatus["206"].user}｜${roomStatus["206"].time}）`
-        }
-      },
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: { type: "plain_text", text: roomStatus["206"].status === "🟢 利用可能" ? "借りる" : "返却する" },
-            value: "206",
-            action_id: "toggle_206"
-          }
-        ]
-      },
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*部屋207*：${roomStatus["207"].status}（${roomStatus["207"].user}｜${roomStatus["207"].time}）`
-        }
-      },
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: { type: "plain_text", text: roomStatus["207"].status === "🟢 利用可能" ? "借りる" : "返却する" },
-            value: "207",
-            action_id: "toggle_207"
-          }
-        ]
+function createKeyStatusBlocks() {
+  return [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*部屋206*：${roomStatus["206"].status}（${roomStatus["206"].user}｜${roomStatus["206"].time}）`
       }
-    ]
-  };
-
-  if (update && statusMessageTs) {
-    await app.client.chat.update({ ...message, ts: statusMessageTs });
-  } else {
-    const res = await app.client.chat.postMessage(message);
-    statusMessageTs = res.ts;
-  }
+    },
+    {
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          text: { type: "plain_text", text: roomStatus["206"].status === "🟢 利用可能" ? "借りる" : "返却する" },
+          value: "206",
+          action_id: "toggle_206"
+        }
+      ]
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*部屋207*：${roomStatus["207"].status}（${roomStatus["207"].user}｜${roomStatus["207"].time}）`
+      }
+    },
+    {
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          text: { type: "plain_text", text: roomStatus["207"].status === "🟢 利用可能" ? "借りる" : "返却する" },
+          value: "207",
+          action_id: "toggle_207"
+        }
+      ]
+    }
+  ];
 }
 
 app.action("toggle_206", async ({ ack, body }) => {
@@ -84,7 +73,7 @@ app.action("toggle_206", async ({ ack, body }) => {
     time: newStatus === "🔴 借りられ中" ? now : "未使用"
   };
 
-  await postKeyStatus(body.channel.id, true);
+  await postKeyStatus(body.channel.id);
 });
 
 app.action("toggle_207", async ({ ack, body }) => {
@@ -100,15 +89,26 @@ app.action("toggle_207", async ({ ack, body }) => {
     time: newStatus === "🔴 借りられ中" ? now : "未使用"
   };
 
-  await postKeyStatus(body.channel.id, true);
+  await postKeyStatus(body.channel.id);
 });
+
+async function postKeyStatus(channelId) {
+  const res = await app.client.chat.postMessage({
+    channel: channelId,
+    text: "🔑 鍵の状態",
+    blocks: createKeyStatusBlocks()
+  });
+  statusMessageTs = res.ts;
+}
 
 app.event("message", async ({ event }) => {
   if (event.subtype || event.bot_id) return;
+
   try {
     const auth = await app.client.auth.test();
     const botUserId = auth.user_id;
 
+    // 直前の投稿を削除（Botの投稿だけ）
     if (statusMessageTs) {
       const messageInfo = await app.client.conversations.history({
         channel: event.channel,
@@ -118,11 +118,15 @@ app.event("message", async ({ event }) => {
       });
 
       if (messageInfo.messages?.[0]?.user === botUserId) {
-        await app.client.chat.delete({ channel: event.channel, ts: statusMessageTs });
+        await app.client.chat.delete({
+          channel: event.channel,
+          ts: statusMessageTs
+        });
       }
     }
 
     await postKeyStatus(event.channel);
+
   } catch (err) {
     console.error("💥 メッセージ削除エラー:", err);
   }
@@ -156,15 +160,40 @@ receiver.router.get('/slack/oauth_redirect', async (req, res) => {
   }
 });
 
-// 起動処理
+// 起動時の処理
 (async () => {
   await app.start(process.env.PORT || 3000);
   console.log("⚡️ 鍵管理Bot 起動中！");
 
   try {
-    const channelId = "C08LYUQSLM9"; // ← DevelopHubの「笑う」のチャンネルIDを直接指定
-    await postKeyStatus(channelId);
+    const channelId = "CC08LYUQSLM9"; // ← DevelopHubの「笑う」のチャンネルID
+
+    const auth = await app.client.auth.test();
+    const botUserId = auth.user_id;
+
+    const history = await app.client.conversations.history({
+      channel: channelId,
+      limit: 100
+    });
+
+    for (const message of history.messages) {
+      if (message.user === botUserId && message.text.includes("🔑 鍵の状態")) {
+        await app.client.chat.delete({
+          channel: channelId,
+          ts: message.ts
+        });
+      }
+    }
+
+    const res = await app.client.chat.postMessage({
+      channel: channelId,
+      text: "🔑 鍵の状態",
+      blocks: createKeyStatusBlocks()
+    });
+
+    statusMessageTs = res.ts;
+
   } catch (error) {
-    console.error("チャンネル取得エラー:", error);
+    console.error("起動時エラー:", error);
   }
 })();
