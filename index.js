@@ -105,6 +105,8 @@ app.action("toggle_207", async ({ ack, body }) => {
 
 app.event("message", async ({ event }) => {
   if (event.subtype || event.bot_id) return;
+  console.log("📨 message from channel:", event.channel);
+
   try {
     if (statusMessageTs) {
       await app.client.chat.delete({ channel: event.channel, ts: statusMessageTs });
