@@ -60,6 +60,38 @@ function createKeyStatusBlocks() {
   ];
 }
 
+async function postKeyStatus(channelId) {
+  const auth = await app.client.auth.test();
+  const botUserId = auth.user_id;
+
+  // 前の投稿を削除（あれば）
+  if (statusMessageTs) {
+    const messageInfo = await app.client.conversations.history({
+      channel: channelId,
+      latest: statusMessageTs,
+      limit: 1,
+      inclusive: true
+    });
+
+    if (messageInfo.messages?.[0]?.user === botUserId) {
+      await app.client.chat.delete({
+        channel: channelId,
+        ts: statusMessageTs
+      });
+    }
+  }
+
+  // 新しいメッセージを投稿
+  const res = await app.client.chat.postMessage({
+    channel: channelId,
+    text: "🔑 鍵の状態",
+    blocks: createKeyStatusBlocks()
+  });
+
+  // 最新のメッセージTSを保存
+  statusMessageTs = res.ts;
+}
+
 app.action("toggle_206", async ({ ack, body }) => {
   await ack();
   const user = `<@${body.user.id}>`;
@@ -92,41 +124,11 @@ app.action("toggle_207", async ({ ack, body }) => {
   await postKeyStatus(body.channel.id);
 });
 
-async function postKeyStatus(channelId) {
-  const res = await app.client.chat.postMessage({
-    channel: channelId,
-    text: "🔑 鍵の状態",
-    blocks: createKeyStatusBlocks()
-  });
-  statusMessageTs = res.ts;
-}
-
 app.event("message", async ({ event }) => {
   if (event.subtype || event.bot_id) return;
 
   try {
-    const auth = await app.client.auth.test();
-    const botUserId = auth.user_id;
-
-    // 直前の投稿を削除（Botの投稿だけ）
-    if (statusMessageTs) {
-      const messageInfo = await app.client.conversations.history({
-        channel: event.channel,
-        latest: statusMessageTs,
-        limit: 1,
-        inclusive: true
-      });
-
-      if (messageInfo.messages?.[0]?.user === botUserId) {
-        await app.client.chat.delete({
-          channel: event.channel,
-          ts: statusMessageTs
-        });
-      }
-    }
-
     await postKeyStatus(event.channel);
-
   } catch (err) {
     console.error("💥 メッセージ削除エラー:", err);
   }
