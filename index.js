@@ -105,12 +105,23 @@ app.action("toggle_207", async ({ ack, body }) => {
 
 app.event("message", async ({ event }) => {
   if (event.subtype || event.bot_id) return;
-  console.log("📨 message from channel:", event.channel);
-
   try {
+    const auth = await app.client.auth.test();
+    const botUserId = auth.user_id;
+
     if (statusMessageTs) {
-      await app.client.chat.delete({ channel: event.channel, ts: statusMessageTs });
+      const messageInfo = await app.client.conversations.history({
+        channel: event.channel,
+        latest: statusMessageTs,
+        limit: 1,
+        inclusive: true
+      });
+
+      if (messageInfo.messages?.[0]?.user === botUserId) {
+        await app.client.chat.delete({ channel: event.channel, ts: statusMessageTs });
+      }
     }
+
     await postKeyStatus(event.channel);
   } catch (err) {
     console.error("💥 メッセージ削除エラー:", err);
@@ -133,8 +144,8 @@ receiver.router.get('/slack/oauth_redirect', async (req, res) => {
     });
 
     if (result.data.ok) {
-        console.log("🌟 新しいBotトークン:", result.data.access_token); // ←ここ追加！
-        res.send("✅ Slackアプリのインストールが完了しました！");
+      console.log("🌟 新しいBotトークン:", result.data.access_token);
+      res.send("✅ Slackアプリのインストールが完了しました！");
     } else {
       console.error("OAuth失敗:", result.data);
       res.status(500).send("OAuth処理に失敗しました");
@@ -151,22 +162,8 @@ receiver.router.get('/slack/oauth_redirect', async (req, res) => {
   console.log("⚡️ 鍵管理Bot 起動中！");
 
   try {
-    const result = await app.client.conversations.list({
-      types: 'public_channel'
-    });
-
-    console.log("📺 チャンネル一覧（名前とID）:");
-    result.channels.forEach(c => {
-      console.log(`・${c.name} → ${c.id}`);
-    });
-
-    const channel = result.channels.find(c => c.name === "笑う"); // または "general" に切り替えてテスト可
-
-    if (channel) {
-      await postKeyStatus(channel.id);
-    } else {
-      console.log("😢 チャンネル「笑う」が見つかりませんでした。");
-    }
+    const channelId = "C08LZMF1PRQ"; // ← DevelopHubの「笑う」のチャンネルIDを直接指定
+    await postKeyStatus(channelId);
   } catch (error) {
     console.error("チャンネル取得エラー:", error);
   }
