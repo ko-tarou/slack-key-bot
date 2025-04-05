@@ -170,10 +170,6 @@ receiver.router.get('/slack/oauth_redirect', async (req, res) => {
     const auth = await app.client.auth.test();
     const botUserId = auth.user_id;
 
-    await app.client.conversations.join({
-        channel: channelId
-      });
-
     const history = await app.client.conversations.history({
       channel: channelId,
       limit: 100
