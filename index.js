@@ -2,7 +2,6 @@ const { App, ExpressReceiver } = require('@slack/bolt');
 const axios = require('axios');
 require('dotenv').config();
 
-// 鍵の状態
 let roomStatus = {
   "206": { status: "🟢 利用可能", user: "なし", time: "未使用" },
   "207": { status: "🟢 利用可能", user: "なし", time: "未使用" }
@@ -20,7 +19,6 @@ const app = new App({
   receiver
 });
 
-// 🔑 鍵状態表示
 async function postKeyStatus(channelId, update = false) {
   const message = {
     channel: channelId,
@@ -73,7 +71,6 @@ async function postKeyStatus(channelId, update = false) {
   }
 }
 
-// ボタン処理
 app.action("toggle_206", async ({ ack, body }) => {
   await ack();
   const user = `<@${body.user.id}>`;
@@ -106,7 +103,6 @@ app.action("toggle_207", async ({ ack, body }) => {
   await postKeyStatus(body.channel.id, true);
 });
 
-// メッセージ再投稿
 app.event("message", async ({ event }) => {
   if (event.subtype || event.bot_id) return;
   try {
@@ -119,7 +115,7 @@ app.event("message", async ({ event }) => {
   }
 });
 
-// 🔁 Slack OAuth redirect handler（トークン交換ここ！！）
+// OAuth redirect
 receiver.router.get('/slack/oauth_redirect', async (req, res) => {
   const code = req.query.code;
   if (!code) return res.status(400).send("コードがありません");
@@ -152,8 +148,17 @@ receiver.router.get('/slack/oauth_redirect', async (req, res) => {
   console.log("⚡️ 鍵管理Bot 起動中！");
 
   try {
-    const result = await app.client.conversations.list();
-    const channel = result.channels.find(c => c.name === "笑う");
+    const result = await app.client.conversations.list({
+      types: 'public_channel'
+    });
+
+    console.log("📺 チャンネル一覧（名前とID）:");
+    result.channels.forEach(c => {
+      console.log(`・${c.name} → ${c.id}`);
+    });
+
+    const channel = result.channels.find(c => c.name === "笑う"); // または "general" に切り替えてテスト可
+
     if (channel) {
       await postKeyStatus(channel.id);
     } else {
