@@ -130,7 +130,7 @@ receiver.router.get('/slack/oauth_redirect', async (req, res) => {
         code,
         client_id: process.env.SLACK_CLIENT_ID,
         client_secret: process.env.SLACK_CLIENT_SECRET,
-        redirect_uri: 'https://your-app.onrender.com/slack/oauth_redirect' // 👈 あなたのURLに置き換えて！
+        redirect_uri: 'https://slack-key-bot.onrender.com/slack/oauth_redirect'
       }
     });
 
