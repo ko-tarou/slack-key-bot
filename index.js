@@ -174,6 +174,10 @@ receiver.router.get('/slack/oauth_redirect', async (req, res) => {
 // 起動時の処理
 (async () => {
   await app.start(process.env.PORT || 3000);
+
+  const auth = await app.client.auth.test();
+  console.log("✅ Botトークンはこのワークスペース用です：", auth.team, "（チームID:", auth.team_id, "）");
+
   console.log("⚡️ 鍵管理Bot 起動中！");
   try {
     const channelId = "C08LZMF1PRQ"; // ← DevelopHubの「笑う」のチャンネルID
