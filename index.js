@@ -207,3 +207,4 @@ receiver.router.get('/slack/oauth_redirect', async (req, res) => {
     console.error("起動時エラー:", error);
   }
 })();
+
