@@ -171,6 +171,8 @@ receiver.router.get('/slack/oauth_redirect', async (req, res) => {
   }
 });
 
+receiver.router.get('/health', (req, res) => res.status(200).send('OK'));
+
 // 起動時の処理
 (async () => {
   await app.start(process.env.PORT || 3000);
